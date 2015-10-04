@@ -1,57 +1,59 @@
 pico-8 cartridge // http://www.pico-8.com
 version 4
 __lua__
--- plong!
+-- plong! v0.1b
 -- by honkfestival
 
 ball = {}
 paddles = {}
 players = {}
 
-paused = true
+state_open = 0
+state_play = 1
+state_win1 = 2
+state_win2 = 3
+
+current_state = -1
 
 function _init()
   pal()
-  reset_state()
-  draw_everything()
-  print("[z] for new game", 32, 62)
+  reset_ball()
+  reset_paddles()
+  reset_players()
+  current_state = state_open
 end
 
-function reset_state()
-  ball.x = 61
-  ball.y = 61
-  ball.dx = 0
-  ball.dy = 0
-  ball.height = 4
-  ball.width = 4
+function player_wins(player)
+  if (player == 1) then
+    current_state = state_win1
+  elseif(player == 2) then
+    current_state = state_win2
+  else
+    -- blow up?
+  end
+end
 
-  paddles[1] = {}
-  paddles[1].x = 10
-  paddles[1].y = 56
-  paddles[1].dy = 4
-  paddles[1].width = 4
-  paddles[1].height = 16
+function reset_ball()
+  ball = { x = 61, y = 61, dx = 0, dy = 0, height = 4, width = 4 }
+end
 
-  players[1] = {}
-  players[1].score = 0
+function reset_paddles()
+  paddles[1] = { x = 10, y = 56, dy = 4, width = 4, height = 16 }
+  paddles[2] = { x = 113, y = 56, dy = 4, width = 4, height = 16 }
+end
 
-  paddles[2] = {}
-  paddles[2].x = 113
-  paddles[2].y = 56
-  paddles[2].dy = 4
-  paddles[2].width = 4
-  paddles[2].height = 16
-
-  players[2] = {}
-  players[2].score = 0
+function reset_players()
+  players[1] = { score = 0 }
+  players[2] = { score = 0 }
 end
 
 function begin_game()
-  ball.dx = random_range(1) * 2
-  if (ball.dx == 0) then
-    ball.dx = 2
-  end
-  ball.dy = random_range(1)
+  current_state = state_play
+  reset_ball()
+  reset_players()
+  reset_paddles()
+  ball.dx = coin_flip() * 2
+  ball.dy = coin_flip()
 end
 
 function collides_top(rect1, rect2)
@@ -82,47 +84,20 @@ function collides_right(rect1, rect2)
      and rect1.y + rect1.height >= rect2.y
 end
 
-function random_range(range)
-  local dy = flr(rnd(range * 2))
-  return dy < (range / 2 + 1) and dy - (flr(range / 2) + 1) or dy - (flr(range / 2) + 1) - range
+function coin_flip()
+  return flr(rnd(2)) == 0 and -1 or 1
 end
 
-function player_1_scored()
-  players[1].score += 1
-  sfx(2, 0)
-  if (players[1].score > 14) then
-    player_1_wins()
+function player_scores(player)
+  players[player].score += 1
+  sfx(player + 1, 0)
+  if (players[player].score > 14) then
+    player_wins(player)
   else
-    ball.x = 61
-    ball.y = 61
-    ball.dx = 2
-    ball.dy = random_range(1)
+    reset_ball()
+    ball.dx = player == 1 and 2 or -2
+    ball.dy = coin_flip()
   end
-end
-
-function player_1_wins()
-  paused = true
-  draw_everything()
-  print("player 1 wins!", 36, 52)
-end
-
-function player_2_scored()
-  players[2].score += 1
-  sfx(3, 0)
-  if (players[2].score > 14) then
-    player_2_wins()
-  else
-    ball.x = 61
-    ball.y = 61
-    ball.dx = -2
-    ball.dy = random_range(1)
-  end
-end
-
-function player_2_wins()
-  paused = true
-  draw_everything()
-  print("player 2 wins!", 36, 52)
 end
 
 function _update()
@@ -132,98 +107,68 @@ function _update()
 end
 
 function update_game_state()
-  if (paused) then
+  if (current_state == state_play) then
+    if (ball.x + ball.width > 125) then
+      player_scores(1)
+    end
+    if (ball.x < 2) then
+      player_scores(2)
+    end
+  else
     if (btnp(4)) then
-      paused = false
-      reset_state()
       begin_game()
     end
-    return
-  end
-
-  if (ball.x < 2) then
-    player_2_scored()
-    return
-  end
-
-  if (ball.x + ball.width > 125) then
-    player_1_scored()
-    return
   end
 end
 
 function update_paddles()
-  if paused then return end
-  if (btn(2, 1)) then paddles[1].y = max(paddles[1].y - paddles[1].dy, 12) end
-  if (btn(3, 1)) then paddles[1].y = min(paddles[1].y + paddles[1].dy, 126 - paddles[1].height) end
+  if (current_state == state_play) then
+    if (btn(2, 1)) then paddles[1].y = max(paddles[1].y - paddles[1].dy, 12) end
+    if (btn(3, 1)) then paddles[1].y = min(paddles[1].y + paddles[1].dy, 126 - paddles[1].height) end
 
-  if (btn(2, 0)) then paddles[2].y = max(paddles[2].y - paddles[2].dy, 12) end
-  if (btn(3, 0)) then paddles[2].y = min(paddles[2].y + paddles[2].dy, 126 - paddles[1].height) end
+    if (btn(2, 0)) then paddles[2].y = max(paddles[2].y - paddles[2].dy, 12) end
+    if (btn(3, 0)) then paddles[2].y = min(paddles[2].y + paddles[2].dy, 126 - paddles[1].height) end
+  end
 end
 
 function update_ball()
-  ball.x += ball.dx
-  ball.y += ball.dy
+  if (current_state == state_play) then
+    ball.x += ball.dx
+    ball.y += ball.dy
 
+    if (ball.dx < 0) then
+      update_collisions(1, 1, 1)
+    else
+      update_collisions(2, 0, 0)
+    end
+
+    if (ball.y < 13 or ball.y + ball.height > 125) then
+      sfx(4, 1)
+      ball.dy = -ball.dy
+    end
+  end
+end
+
+function update_collisions(paddle, btnplayer, soundfx)
   local collision = false
 
-  if (ball.dx < 0) then
-    if (collides_top(ball, paddles[1]) and ball.dy > 0) then
-      ball.dy = -ball.dy
-      collision = true
-    end
-
-    if (collides_bottom(ball, paddles[1]) and ball.dy < 0) then
-      ball.dy = -ball.dy
-      collision = true
-    end
-
-    if (collides_right(ball, paddles[1])) then
-      ball.dx = -ball.dx
-      if (btn(2, 1)) then
-        ball.dy = ball.dy - 1
-      elseif (btn(3, 1)) then
-        ball.dy = ball.dy + 1
-      end
-      collision = true
-    end
-
-    if (collision) then
-      sfx(0, 0)
-      collision = false
-    end
-  end
-
-  if (ball.dx > 0) then
-    if (collides_top(ball, paddles[2]) and ball.dy > 0) then
-      ball.dy = -ball.dy
-      collision = true
-    end
-
-    if (collides_bottom(ball, paddles[2]) and ball.dy < 0) then
-      ball.dy = -ball.dy
-      collision = true
-    end
-
-    if (collides_left(ball, paddles[2])) then
-      ball.dx = -ball.dx
-      if (btn(2, 0)) then
-        ball.dy = ball.dy - 1
-      elseif (btn(3, 0)) then
-        ball.dy = ball.dy + 1
-      end
-      collision = true
-    end
-
-    if (collision) then
-      sfx(1, 0)
-      collision = false
-    end
-  end
-
-  if (ball.y < 13 or ball.y + ball.height > 125) then
-    sfx(4, 1)
+  if ((collides_top(ball, paddles[paddle]) and ball.dy > 0) or (collides_bottom(ball, paddles[paddle]) and ball.dy < 0)) then
     ball.dy = -ball.dy
+    collision = true
+  end
+
+  if ((collides_left(ball, paddles[paddle]) and paddle == 2) or (collides_right(ball, paddles[paddle]) and paddle == 1)) then
+    ball.dx = -ball.dx
+    if (btn(2, btnplayer)) then
+      ball.dy = ball.dy - 1
+    elseif (btn(3, btnplayer)) then
+      ball.dy = ball.dy + 1
+    end
+    collision = true
+  end
+
+  if (collision) then
+    sfx(soundfx, 0)
   end
 end
 
@@ -231,20 +176,6 @@ function draw_frame()
   rect(0, 0, 127, 127)
   line(0, 10, 127, 10)
   print("plong!", 52, 3)
-end
-
-function draw_ball()
-  spr(1, ball.x, ball.y)
-end
-
-function draw_paddles()
-  spr(16, paddles[1].x, paddles[1].y)
-  spr(32, paddles[1].x, paddles[1].y + 8)
-  spr(17, paddles[2].x, paddles[2].y)
-  spr(33, paddles[2].x, paddles[2].y + 8)
-end
-
-function draw_player_scores()
   if (players[1].score < 10) then
     print("0", 3, 3)
     print(players[1].score, 7, 3)
@@ -259,22 +190,34 @@ function draw_player_scores()
   end
 end
 
-function draw_everything()
-  cls()
-  color(7)
-  draw_frame()
-  draw_player_scores()
-  draw_ball()
-  draw_paddles()
-  if (paused) then
-    print("[z] for new game", 32, 70)
-  end
+function draw_ball()
+  spr(1, ball.x, ball.y)
+end
+
+function draw_paddles()
+  spr(16, paddles[1].x, paddles[1].y)
+  spr(32, paddles[1].x, paddles[1].y + 8)
+  spr(17, paddles[2].x, paddles[2].y)
+  spr(33, paddles[2].x, paddles[2].y + 8)
 end
 
 function _draw()
-  draw_everything()
-end
+  cls()
+  color(7)
+  draw_frame()
+  draw_ball()
+  draw_paddles()
 
+  if (current_state == state_win1) then
+    print("player 1 wins!", 36, 52)
+  elseif (current_state == state_win2) then
+    print("player 2 wins!", 36, 52)
+  end
+
+  if (current_state ~= state_play) then
+    print("[z] for new game", 32, 70)
+  end
+end
 
 __gfx__
 00000000022000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
