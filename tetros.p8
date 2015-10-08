@@ -8,13 +8,31 @@ block_types = {'i', 'o', 't', 's', 'z', 'j', 'l'}
 
 block_pieces =
 {
-  i = {{x=0, y=0}, {x=1, y=0}, {x=2, y=0}, {x=3, y=0}},
-  o = {{x=0, y=0}, {x=1, y=0}, {x=1, y=1}, {x=0, y=1}},
-  t = {{x=0, y=0}, {x=1, y=0}, {x=2, y=0}, {x=1, y=1}},
-  s = {{x=0, y=0}, {x=1, y=0}, {x=1, y=1}, {x=2, y=1}},
-  z = {{x=0, y=1}, {x=1, y=1}, {x=1, y=0}, {x=2, y=0}},
-  j = {{x=0, y=1}, {x=0, y=0}, {x=1, y=0}, {x=2, y=0}},
-  l = {{x=0, y=0}, {x=1, y=0}, {x=2, y=0}, {x=2, y=1}}
+  i = {{{x=0, y=1}, {x=1, y=1}, {x=2, y=1}, {x=3, y=1}},
+       {{x=1, y=0}, {x=1, y=1}, {x=1, y=2}, {x=1, y=3}},
+       {{x=0, y=2}, {x=1, y=2}, {x=2, y=2}, {x=3, y=2}},
+       {{x=2, y=0}, {x=2, y=1}, {x=2, y=2}, {x=2, y=3}}},
+  o = {{{x=0, y=0}, {x=1, y=0}, {x=1, y=1}, {x=0, y=1}}},
+  t = {{{x=0, y=1}, {x=1, y=1}, {x=2, y=1}, {x=1, y=0}},
+       {{x=1, y=0}, {x=1, y=1}, {x=1, y=2}, {x=0, y=1}},
+       {{x=0, y=1}, {x=1, y=1}, {x=2, y=1}, {x=1, y=2}},
+       {{x=1, y=0}, {x=1, y=1}, {x=1, y=2}, {x=2, y=1}}},
+  s = {{{x=0, y=0}, {x=1, y=0}, {x=1, y=1}, {x=2, y=1}},
+       {{x=0, y=2}, {x=0, y=1}, {x=1, y=1}, {x=1, y=0}},
+       {{x=0, y=1}, {x=1, y=1}, {x=1, y=2}, {x=2, y=2}},
+       {{x=1, y=2}, {x=1, y=1}, {x=2, y=1}, {x=2, y=0}}},
+  z = {{{x=0, y=1}, {x=1, y=1}, {x=1, y=0}, {x=2, y=0}},
+       {{x=0, y=0}, {x=0, y=1}, {x=1, y=1}, {x=1, y=2}},
+       {{x=0, y=2}, {x=1, y=2}, {x=1, y=1}, {x=2, y=1}},
+       {{x=1, y=0}, {x=1, y=1}, {x=2, y=1}, {x=2, y=2}}},
+  j = {{{x=0, y=1}, {x=1, y=1}, {x=2, y=1}, {x=2, y=0}},
+       {{x=1, y=2}, {x=1, y=1}, {x=1, y=0}, {x=0, y=0}},
+       {{x=0, y=2}, {x=0, y=1}, {x=1, y=1}, {x=2, y=1}},
+       {{x=2, y=2}, {x=1, y=2}, {x=1, y=1}, {x=1, y=0}}},
+  l = {{{x=0, y=0}, {x=0, y=1}, {x=1, y=1}, {x=2, y=1}},
+       {{x=0, y=0}, {x=1, y=0}, {x=1, y=1}, {x=1, y=2}},
+       {{x=0, y=2}, {x=0, y=1}, {x=1, y=1}, {x=2, y=1}},
+       {{x=2, y=2}, {x=1, y=2}, {x=1, y=1}, {x=1, y=0}}}
 }
 
 block_colors = {i=6, o=2, t=5, s=3, z=0, j=4, l=1}
@@ -22,7 +40,7 @@ block_colors = {i=6, o=2, t=5, s=3, z=0, j=4, l=1}
 field = {}
 ticks = 0
 
-current_block = {type=nil, row=nil, column=nil}
+current_block = {type=nil, rotation=nil, row=nil, column=nil}
 
 function draw_block_piece(color, x, y)
   if (y > 19) then return end
@@ -30,7 +48,7 @@ function draw_block_piece(color, x, y)
 end
 
 function draw_block(block)
-  foreach(block_pieces[block.type], function (block_piece) draw_block_piece(block_colors[block.type], block.column+block_piece.x, block.row+block_piece.y) end)
+  foreach(block_pieces[block.type][block.rotation], function (block_piece) draw_block_piece(block_colors[block.type], block.column+block_piece.x, block.row+block_piece.y) end)
 end
 
 function draw_field()
@@ -39,9 +57,8 @@ end
 
 function new_block()
   local new_type = block_types[flr(rnd(7)) + 1]
-  local new_row = 19
   local new_column = new_type == 'o' and 4 or 3
-  return {type=new_type, row=new_row, column=new_column}
+  return {type=new_type, rotation=1, row=19, column=new_column}
 end
 
 function update_block(block)
@@ -51,16 +68,16 @@ function update_block(block)
 end
 
 function _init()
-  current_block = new_block()
+  current_block = {type='s', rotation=1, row=10, column=3}
 end
 
 function _update()
   ticks += 1
-  if (ticks % 30 == 0) then
-    update_block(current_block)
-  end
-  -- if (btnp(0)) then printh("left") end
-  -- if (btnp(1)) then printh("right") end
+  -- if (ticks % 30 == 0) then
+  --   update_block(current_block)
+  -- end
+  if (btnp(0)) then current_block.rotation = (current_block.rotation - 2) % #block_pieces[current_block.type] + 1 end
+  if (btnp(1)) then current_block.rotation = current_block.rotation % #block_pieces[current_block.type] + 1 end
 end
 
 function _draw()
