@@ -1,12 +1,12 @@
 pico-8 cartridge // http://www.pico-8.com
 version 5
 __lua__
--- tetros v0.1a
+-- tetros v0.2a
 -- by honkfestival
 
 block_types = {'i', 'o', 't', 's', 'z', 'j', 'l'}
-
-block_pieces =
+block_colors = {i=6, o=2, t=5, s=3, z=0, j=4, l=1}
+block_parts =
 {
   i = {{{x=0, y=1}, {x=1, y=1}, {x=2, y=1}, {x=3, y=1}},
        {{x=1, y=0}, {x=1, y=1}, {x=1, y=2}, {x=1, y=3}},
@@ -35,8 +35,6 @@ block_pieces =
        {{x=2, y=2}, {x=1, y=2}, {x=1, y=1}, {x=1, y=0}}}
 }
 
-block_colors = {i=6, o=2, t=5, s=3, z=0, j=4, l=1}
-
 field = {}
 ticks = 0
 
@@ -47,37 +45,99 @@ function draw_block_piece(color, x, y)
   spr(color, x*5+40, (19-y)*5+14)
 end
 
+function is_inside_field(piece)
+  return piece.y >= 0 and piece.x >=0 and piece.x <= 9
+end
+
+function compute_block_pieces(block)
+  local parts = block_parts[block.type][block.rotation]
+  return {
+    {x=block.column + parts[1].x, y=block.row + parts[1].y},
+    {x=block.column + parts[2].x, y=block.row + parts[2].y},
+    {x=block.column + parts[3].x, y=block.row + parts[3].y},
+    {x=block.column + parts[4].x, y=block.row + parts[4].y}
+  }
+end
+
+function validate_block_pieces(pieces)
+  return is_inside_field(pieces[1])
+     and is_inside_field(pieces[2])
+     and is_inside_field(pieces[3])
+     and is_inside_field(pieces[4])
+end
+
+function copy_block(block)
+  return {
+    type=current_block.type,
+    rotation=current_block.rotation,
+    row=current_block.row,
+    column=current_block.column
+  }
+end
+
+function can_apply(transform, block)
+  local test_block = copy_block(block)
+  transform(test_block)
+  local test_pieces = compute_block_pieces(test_block)
+  return validate_block_pieces(test_pieces)
+end
+
 function draw_block(block)
-  foreach(block_pieces[block.type][block.rotation], function (block_piece) draw_block_piece(block_colors[block.type], block.column+block_piece.x, block.row+block_piece.y) end)
+  local draw_piece = function (piece)
+    draw_block_piece(block_colors[block.type], piece.x, piece.y)
+  end
+  foreach(compute_block_pieces(block), draw_piece)
 end
 
 function draw_field()
   rect(39, 13, 90, 114)
 end
 
-function new_block()
-  local new_type = block_types[flr(rnd(7)) + 1]
-  local new_column = new_type == 'o' and 4 or 3
-  return {type=new_type, rotation=1, row=19, column=new_column}
+function generate_new_block()
+  return {type=block_types[flr(rnd(7)) + 1], rotation=1, row=18, column=3}
 end
 
-function update_block(block)
-  if (block.row > 0) then
-    block.row = block.row - 1
-  end
+function move_down(block)
+  block.row = block.row - 1
+end
+
+function move_left(block)
+  block.column = block.column - 1
+end
+
+function move_right(block)
+  block.column = block.column + 1
+end
+
+function rotate_cw(block)
+  block.rotation = (block.rotation - 2) % #block_parts[block.type] + 1
+end
+
+function rotate_ccw(block)
+  block.rotation = block.rotation % #block_parts[block.type] + 1
 end
 
 function _init()
-  current_block = {type='s', rotation=1, row=10, column=3}
+  current_block = generate_new_block()
 end
 
 function _update()
   ticks += 1
-  -- if (ticks % 30 == 0) then
-  --   update_block(current_block)
-  -- end
-  if (btnp(0)) then current_block.rotation = (current_block.rotation - 2) % #block_pieces[current_block.type] + 1 end
-  if (btnp(1)) then current_block.rotation = current_block.rotation % #block_pieces[current_block.type] + 1 end
+
+  -- apply button presses
+  if (btnp(0) and can_apply(move_left, current_block)) then move_left(current_block) end
+  if (btnp(1) and can_apply(move_right, current_block)) then move_right(current_block) end
+  if (btnp(4) and can_apply(rotate_cw, current_block)) then rotate_cw(current_block) end
+  if (btnp(5) and can_apply(rotate_ccw, current_block)) then rotate_ccw(current_block) end
+
+  -- apply gravity
+  if (ticks % 30 == 0) then
+    if can_apply(move_down, current_block) then
+      move_down(current_block)
+    else
+      current_block = generate_new_block()
+    end
+  end
 end
 
 function _draw()
