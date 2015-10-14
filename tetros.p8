@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 5
 __lua__
--- tetros v0.2a
+-- tetros v0.3a
 -- by honkfestival
 
 block_types = {'i', 'o', 't', 's', 'z', 'j', 'l'}
@@ -40,17 +40,14 @@ ticks = 0
 
 current_block = {type=nil, rotation=nil, row=nil, column=nil}
 
-function draw_block_piece(color, x, y)
+function draw_block_piece(x, y, color)
   if (y > 19) then return end
   spr(color, x*5+40, (19-y)*5+14)
 end
 
-function is_inside_field(piece)
-  return piece.y >= 0 and piece.x >=0 and piece.x <= 9
-end
-
 function compute_block_pieces(block)
   local parts = block_parts[block.type][block.rotation]
+  local color = block_colors[block.type]
   return {
     {x=block.column + parts[1].x, y=block.row + parts[1].y},
     {x=block.column + parts[2].x, y=block.row + parts[2].y},
@@ -59,11 +56,38 @@ function compute_block_pieces(block)
   }
 end
 
-function validate_block_pieces(pieces)
-  return is_inside_field(pieces[1])
-     and is_inside_field(pieces[2])
-     and is_inside_field(pieces[3])
-     and is_inside_field(pieces[4])
+function place_block_piece(x, y, color)
+  if(field[y] == nil) then
+    field[y] = {}
+  end
+  field[y][x] = color
+end
+
+function place_block(block)
+  local color = block_colors[block.type]
+  local place_piece = function (piece)
+    place_block_piece(piece.x, piece.y, color)
+  end
+  foreach(compute_block_pieces(block), place_piece)
+end
+
+function field_is_empty(piece)
+  return field[piece.y] == nil or field[piece.y][piece.x] == nil
+end
+
+function is_inside_field(piece)
+  return piece.y >= 0 and piece.x >=0 and piece.x <= 9
+end
+
+function can_place_block_piece(piece)
+  return is_inside_field(piece) and field_is_empty(piece)
+end
+
+function can_occupy_field(pieces)
+  return can_place_block_piece(pieces[1])
+     and can_place_block_piece(pieces[2])
+     and can_place_block_piece(pieces[3])
+     and can_place_block_piece(pieces[4])
 end
 
 function copy_block(block)
@@ -79,18 +103,24 @@ function can_apply(transform, block)
   local test_block = copy_block(block)
   transform(test_block)
   local test_pieces = compute_block_pieces(test_block)
-  return validate_block_pieces(test_pieces)
+  return can_occupy_field(test_pieces)
 end
 
 function draw_block(block)
+  local color = block_colors[block.type]
   local draw_piece = function (piece)
-    draw_block_piece(block_colors[block.type], piece.x, piece.y)
+    draw_block_piece(piece.x, piece.y, color)
   end
   foreach(compute_block_pieces(block), draw_piece)
 end
 
 function draw_field()
   rect(39, 13, 90, 114)
+  for row, column_pieces in pairs(field) do
+    for column, color in pairs(column_pieces) do
+      draw_block_piece(column, row, color)
+    end
+  end
 end
 
 function generate_new_block()
@@ -135,6 +165,7 @@ function _update()
     if can_apply(move_down, current_block) then
       move_down(current_block)
     else
+      place_block(current_block)
       current_block = generate_new_block()
     end
   end
