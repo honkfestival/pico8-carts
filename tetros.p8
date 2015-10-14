@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 5
 __lua__
--- tetros v0.3b
+-- tetros v0.4a
 -- by honkfestival
 
 block_types = {'i', 'o', 't', 's', 'z', 'j', 'l'}
@@ -57,7 +57,7 @@ function compute_block_pieces(block)
 end
 
 function place_block_piece(x, y, color)
-  if(field[y] == nil) then
+  if (field[y] == nil) then
     field[y] = {}
   end
   field[y][x] = color
@@ -123,6 +123,27 @@ function draw_field()
   end
 end
 
+function row_is_full(row)
+  for column=0,9 do
+    if row[column] == nil then
+      return false
+    end
+  end
+  return true
+end
+
+function clear_lines()
+  for row=0,19 do
+    if (field[row] == nil) then break end
+    if (row_is_full(field[row])) then
+      for row2=row,19 do
+        field[row2] = field[row2 + 1]
+        if (field[row2] == nil) then break end
+      end
+    end
+  end
+end
+
 function generate_new_block()
   return {type=block_types[flr(rnd(7)) + 1], rotation=1, row=18, column=3}
 end
@@ -161,7 +182,7 @@ function _update()
   if (btnp(5) and can_apply(rotate_ccw, current_block)) then rotate_ccw(current_block) end
 
   -- apply gravity
-  if (ticks % 30 == 0) then
+  if (ticks % 20 == 0 or btn(3)) then
     if can_apply(move_down, current_block) then
       move_down(current_block)
     else
@@ -169,6 +190,8 @@ function _update()
       current_block = generate_new_block()
     end
   end
+
+  clear_lines()
 end
 
 function _draw()
