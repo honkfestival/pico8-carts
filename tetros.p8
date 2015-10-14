@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 5
 __lua__
--- tetros v0.4a
+-- tetros v0.4b
 -- by honkfestival
 
 block_types = {'i', 'o', 't', 's', 'z', 'j', 'l'}
@@ -37,6 +37,9 @@ block_parts =
 
 field = {}
 ticks = 0
+
+holding_left = 0
+holding_right = 0
 
 current_block = {type=nil, rotation=nil, row=nil, column=nil}
 
@@ -176,13 +179,35 @@ function _update()
   ticks += 1
 
   -- apply button presses
-  if (btnp(0) and can_apply(move_left, current_block)) then move_left(current_block) end
-  if (btnp(1) and can_apply(move_right, current_block)) then move_right(current_block) end
+  if (btn(0)) then
+    holding_left = holding_left + 1
+    if (holding_left % 4 == 0 and can_apply(move_left, current_block)) then
+      move_left(current_block)
+    end
+  else
+    if (holding_left % 4 ~= 0 and can_apply(move_left, current_block)) then
+      move_left(current_block)
+    end
+    holding_left = 0
+  end
+
+  if (btn(1)) then
+    holding_right = holding_right + 1
+    if (holding_right % 4 == 0 and can_apply(move_right, current_block)) then
+      move_right(current_block)
+    end
+  else
+    if (holding_right % 4 ~= 0 and can_apply(move_right, current_block)) then
+      move_right(current_block)
+    end
+    holding_right = 0
+  end
+
   if (btnp(4) and can_apply(rotate_cw, current_block)) then rotate_cw(current_block) end
   if (btnp(5) and can_apply(rotate_ccw, current_block)) then rotate_ccw(current_block) end
 
   -- apply gravity
-  if (ticks % 20 == 0 or btn(3)) then
+  if (ticks % 30 == 0 or btn(3)) then
     if can_apply(move_down, current_block) then
       move_down(current_block)
     else
