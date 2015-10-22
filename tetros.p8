@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 5
 __lua__
--- tetros v0.4b
+-- tetros v0.4c
 -- by honkfestival
 
 block_types = {'i', 'o', 't', 's', 'z', 'j', 'l'}
@@ -37,6 +37,13 @@ block_parts =
 
 field = {}
 ticks = 0
+
+state_start = 0
+state_play = 1
+state_lines = 2
+state_gameover = 3
+
+current_state = -1
 
 holding_left = 0
 holding_right = 0
@@ -135,15 +142,27 @@ function row_is_full(row)
   return true
 end
 
-function clear_lines()
+function partition_rows()
+  local full_rows, other_rows = {}, {}
   for row=0,19 do
     if (field[row] == nil) then break end
     if (row_is_full(field[row])) then
-      for row2=row,19 do
-        field[row2] = field[row2 + 1]
-        if (field[row2] == nil) then break end
-      end
+      full_rows[#full_rows + 1] = row
+    else
+      other_rows[#other_rows + 1] = row
     end
+  end
+  return full_rows, other_rows
+end
+
+function clear_rows()
+  local full_rows, other_rows = partition_rows()
+  if (#full_rows > 0) then
+    local new_field = {}
+    for i=1,#other_rows do
+      new_field[i - 1] = field[other_rows[i]]
+    end
+    field = new_field
   end
 end
 
@@ -172,51 +191,54 @@ function rotate_ccw(block)
 end
 
 function _init()
+  current_state = state_play
   current_block = generate_new_block()
 end
 
 function _update()
   ticks += 1
 
-  -- apply button presses
-  if (btn(0)) then
-    holding_left = holding_left + 1
-    if (holding_left % 4 == 0 and can_apply(move_left, current_block)) then
-      move_left(current_block)
-    end
-  else
-    if (holding_left % 4 ~= 0 and can_apply(move_left, current_block)) then
-      move_left(current_block)
-    end
-    holding_left = 0
-  end
-
-  if (btn(1)) then
-    holding_right = holding_right + 1
-    if (holding_right % 4 == 0 and can_apply(move_right, current_block)) then
-      move_right(current_block)
-    end
-  else
-    if (holding_right % 4 ~= 0 and can_apply(move_right, current_block)) then
-      move_right(current_block)
-    end
-    holding_right = 0
-  end
-
-  if (btnp(4) and can_apply(rotate_cw, current_block)) then rotate_cw(current_block) end
-  if (btnp(5) and can_apply(rotate_ccw, current_block)) then rotate_ccw(current_block) end
-
-  -- apply gravity
-  if (ticks % 30 == 0 or btn(3)) then
-    if can_apply(move_down, current_block) then
-      move_down(current_block)
+  if (current_state == state_play) then
+    -- apply button presses
+    if (btn(0)) then
+      holding_left = holding_left + 1
+      if (holding_left % 4 == 0 and can_apply(move_left, current_block)) then
+        move_left(current_block)
+      end
     else
-      place_block(current_block)
-      current_block = generate_new_block()
+      if (holding_left % 4 ~= 0 and can_apply(move_left, current_block)) then
+        move_left(current_block)
+      end
+      holding_left = 0
     end
-  end
 
-  clear_lines()
+    if (btn(1)) then
+      holding_right = holding_right + 1
+      if (holding_right % 4 == 0 and can_apply(move_right, current_block)) then
+        move_right(current_block)
+      end
+    else
+      if (holding_right % 4 ~= 0 and can_apply(move_right, current_block)) then
+        move_right(current_block)
+      end
+      holding_right = 0
+    end
+
+    if (btnp(4) and can_apply(rotate_cw, current_block)) then rotate_cw(current_block) end
+    if (btnp(5) and can_apply(rotate_ccw, current_block)) then rotate_ccw(current_block) end
+
+    -- apply gravity
+    if (ticks % 30 == 0 or btn(3)) then
+      if can_apply(move_down, current_block) then
+        move_down(current_block)
+      else
+        place_block(current_block)
+        current_block = generate_new_block()
+      end
+    end
+
+    clear_rows()
+  end
 end
 
 function _draw()
@@ -235,16 +257,16 @@ eeee800099994000aaaa9000bbbb3000cccc1000eeee20007777c000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0888000004440000099900000333000001110000022200000ccc0000000000000000000000000000000000000000000000000000000000000000000000000000
+0e880000094400000a9900000b3300000c1100000e22000007cc0000000000000000000000000000000000000000000000000000000000000000000000000000
+0ee80000099400000aa900000bb300000cc100000ee20000077c0000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00e000000090000000a0000000b0000000c0000000e0000000700000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
