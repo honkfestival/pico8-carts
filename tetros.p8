@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 5
 __lua__
--- tetros v0.4c
+-- tetros v0.5a
 -- by honkfestival
 
 block_types = {'i', 'o', 't', 's', 'z', 'j', 'l'}
@@ -40,19 +40,20 @@ ticks = 0
 
 state_start = 0
 state_play = 1
-state_lines = 2
+state_rows = 2
 state_gameover = 3
 
-current_state = -1
+current_state = nil
+current_frame = 0
 
 holding_left = 0
 holding_right = 0
 
 current_block = {type=nil, rotation=nil, row=nil, column=nil}
 
-function draw_block_piece(x, y, color)
+function draw_block_piece(x, y, color, frame)
   if (y > 19) then return end
-  spr(color, x*5+40, (19-y)*5+14)
+  spr(frame*16+color, x*5+40, (19-y)*5+14)
 end
 
 function compute_block_pieces(block)
@@ -119,7 +120,7 @@ end
 function draw_block(block)
   local color = block_colors[block.type]
   local draw_piece = function (piece)
-    draw_block_piece(piece.x, piece.y, color)
+    draw_block_piece(piece.x, piece.y, color, 0)
   end
   foreach(compute_block_pieces(block), draw_piece)
 end
@@ -127,8 +128,14 @@ end
 function draw_field()
   rect(39, 13, 90, 114)
   for row, column_pieces in pairs(field) do
-    for column, color in pairs(column_pieces) do
-      draw_block_piece(column, row, color)
+    if (current_state == state_rows and row_is_full(column_pieces)) then
+      for column, color in pairs(column_pieces) do
+        draw_block_piece(column, row, color, flr(current_frame/2))
+      end
+    else
+      for column, color in pairs(column_pieces) do
+        draw_block_piece(column, row, color, 0)
+      end
     end
   end
 end
@@ -143,27 +150,24 @@ function row_is_full(row)
 end
 
 function partition_rows()
-  local full_rows, other_rows = {}, {}
+  local full_rows, nonempty_rows = {}, {}
   for row=0,19 do
     if (field[row] == nil) then break end
     if (row_is_full(field[row])) then
       full_rows[#full_rows + 1] = row
     else
-      other_rows[#other_rows + 1] = row
+      nonempty_rows[#nonempty_rows + 1] = row
     end
   end
-  return full_rows, other_rows
+  return full_rows, nonempty_rows
 end
 
-function clear_rows()
-  local full_rows, other_rows = partition_rows()
-  if (#full_rows > 0) then
-    local new_field = {}
-    for i=1,#other_rows do
-      new_field[i - 1] = field[other_rows[i]]
-    end
-    field = new_field
+function replace_field(nonempty_rows)
+  local new_field = {}
+  for i=1,#nonempty_rows do
+    new_field[i - 1] = field[nonempty_rows[i]]
   end
+  field = new_field
 end
 
 function generate_new_block()
@@ -233,18 +237,35 @@ function _update()
         move_down(current_block)
       else
         place_block(current_block)
-        current_block = generate_new_block()
+        local full_rows, nonempty_rows = partition_rows()
+        if (#full_rows > 0) then
+          current_block = nil
+          current_state = state_rows
+        else
+          ticks = 0
+          current_block = generate_new_block()
+        end
       end
     end
-
-    clear_rows()
+  elseif (current_state == state_rows) then
+    current_frame = current_frame + 1
+    if (current_frame > 7) then
+      local full_rows, nonempty_rows = partition_rows()
+      replace_field(nonempty_rows)
+      ticks = 0
+      current_frame = 0
+      current_state = state_play
+      current_block = generate_new_block()
+    end
   end
 end
 
 function _draw()
   cls()
   draw_field()
-  draw_block(current_block)
+  if (current_state == state_play) then
+    draw_block(current_block)
+  end
 end
 
 __gfx__
